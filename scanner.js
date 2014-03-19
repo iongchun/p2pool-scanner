@@ -205,7 +205,7 @@ function Scanner(options) {
         // console.log("P2POOL DIGESTING:",info.ip);
 
         digest_local_stats(info, function(err, stats){
-            if(!err && info.stats.protocol_version >= 1300) {
+            if(!err && stats.protocol_version >= 1300) {
                 // Exclude nodes lacking protocol_version or older than 1300
                 info.stats = stats;
                 info.fee   = stats.fee;
