@@ -205,6 +205,10 @@ function Scanner(options) {
         var info = _.find(self.addr_pending, function() { return true; });
         delete self.addr_pending[info.ip];
         self.addr_digested[info.ip] = info;
+        if (/(^127\.0\.0\.1)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/.test(info.ip)) {
+            delete self.addr_working[info.ip];
+            return continue_digest();
+        }
         // console.log("P2POOL DIGESTING:",info.ip);
 
         digest_local_stats(info, function(err, stats){
@@ -234,12 +238,12 @@ function Scanner(options) {
                 delete self.addr_working[info.ip];
                 continue_digest();
             }
-
-            function continue_digest() {
-                self.working_size = _.size(self.addr_working);
-                dpc(self.digest);
-            }
         });
+
+        function continue_digest() {
+            self.working_size = _.size(self.addr_working);
+            dpc(self.digest);
+        }
     }
 
     // schedule restar of the scan once all IPs are done
