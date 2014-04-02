@@ -174,6 +174,22 @@ function Scanner(options) {
     self.restore_working = function() {
         try {
             self.addr_working = JSON.parse(fs.readFileSync(config.store_file, 'utf8'));
+            // migration from old key (ip) to new key (ip:port)
+            var changed = false;
+            for (var id in self.addr_working) {
+                var info = self.addr_working[id];
+                if (!/:/.test(id)) {
+                    console.log("old key: ", id)
+                    delete self.addr_working[id];
+                    id = info.ip + ':' + info.port;
+                    console.log("new key: ", id);
+                    self.addr_working[id] = info;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                self.store_working();
+            }
         } catch(ex) { /*console.log(ex);*/ }
     }
 
@@ -182,9 +198,10 @@ function Scanner(options) {
         _.each(addr_list, function(info) {
             var ip = info[0][0];
             var port = info[0][1];
+            var id = ip + ':' + port;
 
-            if(!self.addr_digested[ip] && !self.addr_pending[ip]) {
-                self.addr_pending[ip] = { ip : ip, port : port }
+            if(!self.addr_digested[id] && !self.addr_pending[id]) {
+                self.addr_pending[id] = { ip : ip, port : port }
             }
 
             self.nodes_total = _.size(self.addr_digested) + _.size(self.addr_pending);
@@ -203,10 +220,11 @@ function Scanner(options) {
             return self.list_complete();
 
         var info = _.find(self.addr_pending, function() { return true; });
-        delete self.addr_pending[info.ip];
-        self.addr_digested[info.ip] = info;
+        var id = info.ip + ':' + info.port;
+        delete self.addr_pending[id];
+        self.addr_digested[id] = info;
         if (/(^127\.0\.0\.1)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/.test(info.ip)) {
-            delete self.addr_working[info.ip];
+            delete self.addr_working[id];
             return continue_digest();
         }
         // console.log("P2POOL DIGESTING:",info.ip);
@@ -235,7 +253,7 @@ function Scanner(options) {
                 });
             }
             else {
-                delete self.addr_working[info.ip];
+                delete self.addr_working[id];
                 continue_digest();
             }
         });
