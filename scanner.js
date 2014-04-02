@@ -234,7 +234,7 @@ function Scanner(options) {
                 // Exclude nodes lacking protocol_version or older than 1300
                 info.stats = stats;
                 info.fee   = stats.fee;
-                self.addr_working[info.ip] = info;
+                self.addr_working[id] = info;
                 // console.log("FOUND WORKING POOL: ", info.ip);
 
                 digest_global_stats(info, function(err, stats) {
