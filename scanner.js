@@ -7,6 +7,27 @@ var fs = require('fs'),
 
 function dpc(t,fn) { if(typeof(t) == 'function') setTimeout(t,0); else setTimeout(fn,t); }
 
+var number_units = ['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
+
+function nice_number(n) {
+    var f = 0;
+    var i = -1;
+    console.log("n=", n);
+    while (n >= 1000) {
+        if ((i+1) >= number_units.length) {
+            return "" + n + number_units[i];
+        }
+        f = (n % 1000).toFixed(0);
+        n = (n / 1000).toFixed(0);
+        i++;
+        console.log("i=", i, " n=", n, " f=", f);
+    }
+    if (i > 0) {
+        return "" + n + ((f > 0) ? "." + f : "") + number_units[i];
+    }
+    return n;
+}
+
 function Scanner(options) {
 
 	var self = this;
@@ -69,7 +90,7 @@ function Scanner(options) {
             str += "<div style='float:left;margin:16px;'><img src=\""+logo+"\" /></div><br style='clear:both;'/>";
         str += "<center><a href='https://github.com/forrestv/p2pool' target='_blank'>PEER TO PEER "+(config.currency.toUpperCase())+" MINING NETWORK</a> - PUBLIC NODE LIST<br/><span style='font-size:10px;color:#333;'>GENERATED ON: "+(new Date())+"</span></center><p/>"
         if(self.poolstats)
-            str += "<center>Pool speed: "+(self.poolstats.pool_hash_rate/1000000).toFixed(2)+" "+config.speed_abbrev+"</center>";
+            str += "<center>Pool speed: "+nice_number(self.poolstats.pool_hash_rate)+"h/s</center>";
         str += "<center>Currently observing "+(self.nodes_total || "N/A")+" nodes.<br/>"+_.size(self.addr_working)+" nodes are public with following IPs:</center><p/>";
         str += "<div class='p2p'>";
         str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IPs</div><div class='p2p-fee'>Fee</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
