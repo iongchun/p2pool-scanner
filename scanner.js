@@ -9,20 +9,32 @@ function dpc(t,fn) { if(typeof(t) == 'function') setTimeout(t,0); else setTimeou
 
 var number_units = ['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
+function float2int (value) {
+    return value | 0;
+}
+
 function nice_number(n) {
     var f = 0;
     var i = -1;
-    console.log("n=", n);
+    //console.log("n=", n);
     while (n >= 1000) {
         if ((i+1) >= number_units.length) {
             return "" + n + number_units[i];
         }
-        f = (n % 1000).toFixed(0);
-        n = (n / 1000).toFixed(0);
+        f = n % 1000;
+        n = n / 1000;
         i++;
-        console.log("i=", i, " n=", n, " f=", f);
+        //console.log("i=", i, " n=", n, " f=", f);
     }
     if (i > 0) {
+        n = float2int(n);
+        if (n < 10) {
+            f = float2int(f / 100) * 100;
+        } else if (n < 100) {
+            f = float2int(f / 10) * 10;
+        } else {
+            f = float2int(f);
+        }
         return "" + n + ((f > 0) ? "." + f : "") + number_units[i];
     }
     return n;
