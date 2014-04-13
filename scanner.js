@@ -19,7 +19,7 @@ function nice_number(n) {
     //console.log("n=", n);
     while (n >= 1000) {
         if ((i+1) >= number_units.length) {
-            return "" + n + number_units[i];
+            return "" + n + " " + number_units[i];
         }
         f = n % 1000;
         n = n / 1000;
@@ -30,12 +30,19 @@ function nice_number(n) {
         n = float2int(n);
         if (n < 10) {
             f = float2int(f);
+            if (f < 100) {
+                f = "0" + f;
+                if (f < 10)
+                    f = "0" + f;
+            }
         } else if (n < 100) {
             f = float2int(f / 10);
+            if (f < 10)
+                f = "0" + f;
         } else {
             f = float2int(f / 100);
         }
-        return "" + n + ((f > 0) ? "." + f : "") + number_units[i];
+        return "" + n + ((f > 0) ? "." + f : "") + " " + number_units[i];
     }
     return n;
 }
