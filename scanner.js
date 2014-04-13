@@ -120,7 +120,7 @@ function Scanner(options) {
             + (public_good_rate ? ", good shares: " + (public_good_rate * 100).toFixed(2) + "%" : "")
             + ") are public with following IPs:</center><p/>";
         str += "<div class='p2p'>";
-        str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IPs</div><div class='p2p-version'>Version</div><div class='p2p-fee'>Fee</div><div class='p2p-hashrate'>Hashrate</div><div class='p2p-effi'>Efficiency</div><div class='p2p-shares'>Shares</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
+        str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IP:port</div><div class='p2p-version'>Version</div><div class='p2p-fee'>Fee</div><div class='p2p-hashrate'>Hashrate</div><div class='p2p-effi'>Efficiency</div><div class='p2p-shares'>Shares</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
         str += "</div><br style='clear:both;'/>";
 
         var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.good_rate && o.stats.shares.total ? -o.good_rate * o.good_rate * Math.log(o.stats.shares.total) : 0; })
@@ -137,7 +137,7 @@ function Scanner(options) {
             var shares_show = shares.total ? (shares.total - shares.orphan - shares.dead) + " / " + shares.total : 0;
             var effi = public_good_rate ? ((info.good_rate / public_good_rate) * 100).toFixed(2) + "%" : "N/A";
 
-            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"/static/' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
+            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
             str += "<div class='p2p-geo'>";
             if(info.geo) {
                 str += "<a href='http://www.geoiptool.com/en/?IP="+info.ip+"' target='_blank'>"+info.geo.country+" "+"<img src='"+info.geo.img+"' align='absmiddle' border='0'/></a>";
