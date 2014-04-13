@@ -94,16 +94,17 @@ function Scanner(options) {
             +"a:visited { text-decoration: none; color: #0051AD; }"
             +"a:hover { text-decoration: none; color: #F04800; }"
             +".row-grey { background-color: #f3f3f3;  }"
-            +".p2p {  width: 1058px; margin-left: 40px; border: 1px solid #aaa;  box-shadow: 2px 2px 2px #aaa; padding: 2px;  }"
-            +".p2p-row { width: 1040px; padding: 10px; height: 16px; }"
-            +".p2p-caption { width: 1040px; text-align: center;  background-color: #ddd; padding-top: 4px; padding-bottom: 8px;}"
+            +".p2p {  width: 1168px; margin-left: 40px; border: 1px solid #aaa;  box-shadow: 2px 2px 2px #aaa; padding: 2px;  }"
+            +".p2p-row { width: 1150px; padding: 10px; height: 16px; }"
+            +".p2p-caption { width: 1150px; text-align: center;  background-color: #ddd; padding-top: 4px; padding-bottom: 8px;}"
             +".p2p div { float : left; }"
             +".p2p-ip { width: 200px; text-align:left; }"
-            +".p2p-version { margin-left: 10px; width: 100px; text-align: center;}"
-            +".p2p-fee { margin-left: 10px; width: 90px; text-align: center;}"
-            +".p2p-hashrate { margin-left: 0px; width: 100px; text-align: right;}"
-            +".p2p-effi { margin-left: 0px; width: 100px; text-align: right;}"
-            +".p2p-uptime { margin-left: 30px; width: 100px; text-align: center;}"
+            +".p2p-version { margin-left: 10px; width: 100px; text-align: left;}"
+            +".p2p-fee { margin-left: 10px; width: 90px; text-align: right;}"
+            +".p2p-hashrate { margin-left: 10px; width: 100px; text-align: right;}"
+            +".p2p-effi { margin-left: 10px; width: 100px; text-align: right;}"
+            +".p2p-shares { margin-left: 10px; width: 100px; text-align: right;}"
+            +".p2p-uptime { margin-left: 10px; width: 100px; text-align: right;}"
             +".p2p-geo { margin-left: 40px; width: 248px; text-align: left;}"
             +"img { border: none;}"
             +"</style>"
@@ -112,13 +113,17 @@ function Scanner(options) {
             str += "<div style='float:left;margin:16px;'><img src=\""+logo+"\" /></div><br style='clear:both;'/>";
         str += "<center><a href='https://github.com/forrestv/p2pool' target='_blank'>PEER TO PEER "+(config.currency.toUpperCase())+" MINING NETWORK</a> - PUBLIC NODE LIST<br/><span style='font-size:10px;color:#333;'>GENERATED ON: "+(new Date())+"</span></center><p/>"
         if(self.poolstats)
-            str += "<center>Pool speed: "+nice_number(self.poolstats.pool_hash_rate)+"h/s</center>";
-        str += "<center>Currently observing "+(self.nodes_total || "N/A")+" nodes.<br/>"+_.size(self.addr_working)+" nodes are public with following IPs:</center><p/>";
+            str += "<center>Pool speed: "+nice_number(self.poolstats.pool_hash_rate)+"h/s (est. good shares: " + (self.pool_good_rate * 100).toFixed(2) + "%)</center>";
+        var public_good_rate = (self.total_shares - self.orphan_shares - self.dead_shares) / self.total_shares;
+        str += "<center>Currently observing "+(self.nodes_total || "N/A")+" nodes.<br/>"+_.size(self.addr_working)+" nodes (" + nice_number(self.total_hashrate) + "h/s"
+            + (self.poolstats ? ", " + (self.total_hashrate / self.poolstats.pool_hash_rate * 100).toFixed(2) + "%" : "")
+            + (public_good_rate ? ", good shares: " + (public_good_rate * 100).toFixed(2) + "%" : "")
+            + ") are public with following IPs:</center><p/>";
         str += "<div class='p2p'>";
-        str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IPs</div><div class='p2p-version'>Version</div><div class='p2p-fee'>Fee</div><div class='p2p-hashrate'>Hashrate</div><div class='p2p-effi'>Efficiency</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
+        str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IPs</div><div class='p2p-version'>Version</div><div class='p2p-fee'>Fee</div><div class='p2p-hashrate'>Hashrate</div><div class='p2p-effi'>Efficiency</div><div class='p2p-shares'>Shares</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
         str += "</div><br style='clear:both;'/>";
 
-        var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.stats ? -o.stats.uptime : 0; })
+        var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.good_rate && o.stats.shares.total ? -o.good_rate * o.good_rate * Math.log(o.stats.shares.total) : 0; })
 
         var row = 0;
         _.each(list, function(info) {
@@ -128,13 +133,11 @@ function Scanner(options) {
             var version = info.stats.version ? info.stats.version.replace(/-g.*/, "") : "N/A";
             var uptime = info.stats ? (info.stats.uptime / 60 / 60 / 24).toFixed(1) : "N/A";
             var fee = (info.fee || 0).toFixed(2);
-            var hashrate = 0;
-            for (var miner in info.stats.miner_hash_rates) {
-                hashrate += info.stats.miner_hash_rates[miner];
-            }
-            var effi = ((info.stats.efficiency || 0) * 100).toFixed(2) + "%";
+            var shares = info.stats.shares;
+            var shares_show = shares.total ? (shares.total - shares.orphan - shares.dead) + " / " + shares.total : 0;
+            var effi = public_good_rate ? ((info.good_rate / public_good_rate) * 100).toFixed(2) + "%" : "N/A";
 
-            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"/static/' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
+            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"/static/' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
             str += "<div class='p2p-geo'>";
             if(info.geo) {
                 str += "<a href='http://www.geoiptool.com/en/?IP="+info.ip+"' target='_blank'>"+info.geo.country+" "+"<img src='"+info.geo.img+"' align='absmiddle' border='0'/></a>";
@@ -217,14 +220,40 @@ function Scanner(options) {
         })
     }
 
+    self.calc_node = function(info) {
+        info.total_hashrate = 0;
+        for (var miner in info.stats.miner_hash_rates) {
+            info.total_hashrate += info.stats.miner_hash_rates[miner];
+        }
+        var shares = info.stats.shares;
+        self.total_shares += shares.total;
+        self.orphan_shares += shares.orphan;
+        self.dead_shares += shares.dead;
+        info.good_rate = shares.total ? (shares.total - shares.orphan - shares.dead) / shares.total : 0;
+        if (info.good_rate && info.stats.efficiency) {
+            var current_good_rate = info.good_rate / info.stats.efficiency;
+            if (self.pool_good_rate)
+                self.pool_good_rate = (self.pool_good_rate + current_good_rate) / 2;
+            else
+                self.pool_good_rate = current_good_rate;
+        }
+    }
+
     // reload public list at startup
     self.restore_working = function() {
         try {
             self.addr_working = JSON.parse(fs.readFileSync(config.store_file, 'utf8'));
+            self.total_hashrate = 0;
+            self.total_shares = 0;
+            self.orphan_shares = 0;
+            self.dead_shares = 0;
+            self.pool_good_rate = 0;
             // migration from old key (ip) to new key (ip:port)
             var changed = false;
             for (var id in self.addr_working) {
                 var info = self.addr_working[id];
+                self.calc_node(info);
+                self.total_hashrate += info.total_hashrate;
                 if (!/:/.test(id)) {
                     console.log("old key: ", id)
                     delete self.addr_working[id];
@@ -271,6 +300,14 @@ function Scanner(options) {
         delete self.addr_pending[id];
         self.addr_digested[id] = info;
         if (/(^127\.0\.0\.1)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/.test(info.ip)) {
+            if (self.addr_working[id]) {
+                var oinfo = self.addr_working[id];
+                self.total_hashrate -= oinfo.total_hashrate;
+                var shares = oinfo.stats.shares;
+                self.total_shares -= shares.total;
+                self.orphan_shares -= shares.orphan;
+                self.dead_shares -= shares.dead;
+            }
             delete self.addr_working[id];
             return continue_digest();
         }
@@ -281,6 +318,12 @@ function Scanner(options) {
                 // Exclude nodes lacking protocol_version or older than 1300
                 info.stats = stats;
                 info.fee   = stats.fee;
+                self.calc_node(info);
+                if (self.addr_working[id]) {
+                    var oinfo = self.addr_working[id];
+                    self.total_hashrate -= oinfo.total_hashrate;
+                }
+                self.total_hashrate += info.total_hashrate;
                 self.addr_working[id] = info;
                 // console.log("FOUND WORKING POOL: ", info.ip);
 
@@ -300,6 +343,14 @@ function Scanner(options) {
                 });
             }
             else {
+                if (self.addr_working[id]) {
+                    var oinfo = self.addr_working[id];
+                    self.total_hashrate -= oinfo.total_hashrate;
+                    var shares = oinfo.stats.shares;
+                    self.total_shares -= shares.total;
+                    self.orphan_shares -= shares.orphan;
+                    self.dead_shares -= shares.dead;
+                }
                 delete self.addr_working[id];
                 continue_digest();
             }
