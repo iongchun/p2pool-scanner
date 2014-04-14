@@ -135,7 +135,7 @@ function Scanner(options) {
             var fee = (info.fee || 0).toFixed(2);
             var shares = info.stats.shares;
             var shares_show = shares.total ? (shares.total - shares.orphan - shares.dead) + " / " + shares.total : 0;
-            var effi = public_good_rate ? ((info.good_rate / public_good_rate) * 100).toFixed(2) + "%" : "N/A";
+            var effi = info.good_rate && public_good_rate ? ((info.good_rate / public_good_rate) * 100).toFixed(2) + "%" : "N/A";
 
             str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
             str += "<div class='p2p-geo'>";
@@ -229,7 +229,9 @@ function Scanner(options) {
         self.total_shares += shares.total;
         self.orphan_shares += shares.orphan;
         self.dead_shares += shares.dead;
-        info.good_rate = shares.total ? (shares.total - shares.orphan - shares.dead) / shares.total : 0;
+        if (shares.total) {
+            info.good_rate = (shares.total - shares.orphan - shares.dead) / shares.total;
+        }
         if (info.good_rate && info.stats.efficiency) {
             var current_good_rate = info.good_rate / info.stats.efficiency;
             if (self.pool_good_rate)
