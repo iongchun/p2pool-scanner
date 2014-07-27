@@ -225,6 +225,7 @@ function Scanner(options) {
         for (var miner in info.stats.miner_hash_rates) {
             info.total_hashrate += info.stats.miner_hash_rates[miner];
         }
+        self.total_hashrate += info.total_hashrate;
         var shares = info.stats.shares;
         self.total_shares += shares.total;
         self.orphan_shares += shares.orphan;
@@ -241,6 +242,14 @@ function Scanner(options) {
         }
     }
 
+    self.hide_node = function(info) {
+        self.total_hashrate -= info.total_hashrate;
+        var shares = info.stats.shares;
+        self.total_shares -= shares.total;
+        self.orphan_shares -= shares.orphan;
+        self.dead_shares -= shares.dead;
+    }
+
     // reload public list at startup
     self.restore_working = function() {
         try {
@@ -255,7 +264,6 @@ function Scanner(options) {
             for (var id in self.addr_working) {
                 var info = self.addr_working[id];
                 self.calc_node(info);
-                self.total_hashrate += info.total_hashrate;
                 if (!/:/.test(id)) {
                     console.log("old key: ", id)
                     delete self.addr_working[id];
@@ -304,11 +312,7 @@ function Scanner(options) {
         if (/(^127\.0\.0\.1)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/.test(info.ip)) {
             if (self.addr_working[id]) {
                 var oinfo = self.addr_working[id];
-                self.total_hashrate -= oinfo.total_hashrate;
-                var shares = oinfo.stats.shares;
-                self.total_shares -= shares.total;
-                self.orphan_shares -= shares.orphan;
-                self.dead_shares -= shares.dead;
+                self.hide_node(oinfo);
             }
             delete self.addr_working[id];
             return continue_digest();
@@ -320,16 +324,11 @@ function Scanner(options) {
                 // Exclude nodes lacking protocol_version or older than 1300
                 if (self.addr_working[id]) {
                     var oinfo = self.addr_working[id];
-                    self.total_hashrate -= oinfo.total_hashrate;
-                    var shares = oinfo.stats.shares;
-                    self.total_shares -= shares.total;
-                    self.orphan_shares -= shares.orphan;
-                    self.dead_shares -= shares.dead;
+                    self.hide_node(oinfo);
                 }
                 info.stats = stats;
                 info.fee   = stats.fee;
                 self.calc_node(info);
-                self.total_hashrate += info.total_hashrate;
                 self.addr_working[id] = info;
                 // console.log("FOUND WORKING POOL: ", info.ip);
 
@@ -351,11 +350,7 @@ function Scanner(options) {
             else {
                 if (self.addr_working[id]) {
                     var oinfo = self.addr_working[id];
-                    self.total_hashrate -= oinfo.total_hashrate;
-                    var shares = oinfo.stats.shares;
-                    self.total_shares -= shares.total;
-                    self.orphan_shares -= shares.orphan;
-                    self.dead_shares -= shares.dead;
+                    self.hide_node(oinfo);
                 }
                 delete self.addr_working[id];
                 continue_digest();
