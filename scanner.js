@@ -318,13 +318,17 @@ function Scanner(options) {
         digest_local_stats(info, function(err, stats){
             if(!err && stats.protocol_version >= 1300) {
                 // Exclude nodes lacking protocol_version or older than 1300
-                info.stats = stats;
-                info.fee   = stats.fee;
-                self.calc_node(info);
                 if (self.addr_working[id]) {
                     var oinfo = self.addr_working[id];
                     self.total_hashrate -= oinfo.total_hashrate;
+                    var shares = oinfo.stats.shares;
+                    self.total_shares -= shares.total;
+                    self.orphan_shares -= shares.orphan;
+                    self.dead_shares -= shares.dead;
                 }
+                info.stats = stats;
+                info.fee   = stats.fee;
+                self.calc_node(info);
                 self.total_hashrate += info.total_hashrate;
                 self.addr_working[id] = info;
                 // console.log("FOUND WORKING POOL: ", info.ip);
