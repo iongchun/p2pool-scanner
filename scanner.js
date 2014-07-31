@@ -58,6 +58,8 @@ function Scanner(options) {
     self.addr_pending = { }     // list of addresses waiting scan
     self.addr_digested = { }    // list of scanned addresses
     self.addr_working = { }     // list of working addresses
+    self.share_addrs = { }      // map of share to ip:port
+    self.dup_addrs = { }        // map of ip:port to ip:port
 
     self.geo = new Geo({ timeout : config.http_socket_timeout });
 
@@ -123,12 +125,24 @@ function Scanner(options) {
         str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IP:port</div><div class='p2p-version'>Version</div><div class='p2p-fee'>Fee</div><div class='p2p-hashrate'>Hashrate</div><div class='p2p-effi'>Efficiency</div><div class='p2p-shares'>Shares</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
         str += "</div><br style='clear:both;'/>";
 
+        var dup_idx = 0;
+        var dup_text = {};
         var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.good_rate && o.stats.shares.total ? -o.good_rate * o.good_rate * Math.log(o.stats.shares.total) : 0; })
 
         var row = 0;
         _.each(list, function(info) {
             var ip = info.ip;
             var port = info.port-1;
+            var id = info.ip + ':' + info.port;
+            var text = '';
+            if (self.dup_addrs[id]) {
+                var dup_id = self.dup_addrs[id];
+                if (!dup_text[dup_id]) {
+                    dup_text[dup_id] = ' (*' + dup_idx++ + ')';
+                }
+                text = dup_text[dup_id];
+                //console.log('show dup for', id, ':', dup_id, text);
+            }
 
             var version = info.stats.version ? info.stats.version.replace(/-g.*/, "") : "N/A";
             var uptime = info.stats ? (info.stats.uptime / 60 / 60 / 24).toFixed(1) : "N/A";
@@ -137,7 +151,7 @@ function Scanner(options) {
             var shares_show = shares.total ? (shares.total - shares.orphan - shares.dead) + " / " + shares.total : 0;
             var effi = info.good_rate && public_good_rate ? ((info.good_rate / public_good_rate) * 100).toFixed(2) + "%" : "N/A";
 
-            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"' target='_blank'>"+ip+":"+port+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
+            str += "<div class='p2p-row "+(row++ & 1 ? "row-grey" : "")+"'><div class='p2p-ip'><a href='http://"+ip+":"+port+"' target='_blank'>"+ip+":"+port+text+"</a></div><div class='p2p-version'>"+version+"</div><div class='p2p-fee'>"+fee+"%</div><div class='p2p-hashrate'>"+nice_number(info.total_hashrate)+"h/s</div><div class='p2p-effi'>"+effi+"</div><div class='p2p-shares'>"+shares_show+"</div><div class='p2p-uptime'>"+uptime+" days</div>";
             str += "<div class='p2p-geo'>";
             if(info.geo) {
                 str += "<a href='http://www.geoiptool.com/en/?IP="+info.ip+"' target='_blank'>"+info.geo.country+" "+"<img src='"+info.geo.img+"' align='absmiddle' border='0'/></a>";
@@ -225,11 +239,7 @@ function Scanner(options) {
         for (var miner in info.stats.miner_hash_rates) {
             info.total_hashrate += info.stats.miner_hash_rates[miner];
         }
-        self.total_hashrate += info.total_hashrate;
         var shares = info.stats.shares;
-        self.total_shares += shares.total;
-        self.orphan_shares += shares.orphan;
-        self.dead_shares += shares.dead;
         if (shares.total) {
             info.good_rate = (shares.total - shares.orphan - shares.dead) / shares.total;
         }
@@ -240,14 +250,125 @@ function Scanner(options) {
             else
                 self.pool_good_rate = current_good_rate;
         }
+        var has_dup = false;
+        var old_dup_id;
+        var id = info.ip + ':' + info.port;
+        if (info.shares) {
+            for (i = 0; i < info.shares.length; i++) {
+                var share = info.shares[i];
+                if (!self.share_addrs[share]) {
+                    self.share_addrs[share] = {};
+                } else {
+                    for (var other_id in self.share_addrs[share]) {
+                        if (other_id != id) {
+                            if (!old_dup_id) {
+                                if (self.dup_addrs[other_id]) {
+                                    old_dup_id = self.dup_addrs[other_id];
+                                } else {
+                                    old_dup_id = other_id;
+                                }
+                                if (self.dup_addrs[id] != id) {
+                                    //console.log('replace main to updated dup', id, 'old:', old_dup_id);
+                                    self.dup_addrs[id] = id;
+                                }
+                            }
+                            if (self.dup_addrs[other_id] != id) {
+                                //console.log('replace main for dup', other_id, ': new:', id, 'old:', self.dup_addrs[other_id]);
+                            }
+                            self.dup_addrs[other_id] = id;
+                            has_dup = true;
+                        }
+                    }
+                }
+                self.share_addrs[share][id] = id;
+            }
+        } else if (self.dup_addrs[id]) {
+            old_dup_id = self.dup_addrs[id];
+            if (old_dup_id != id) {
+                //console.log('replace main to updated dup', id, 'old:', old_dup_id);
+                self.dup_addrs[id] = id;
+            }
+            for (var other_id in self.dup_addrs) {
+                if (self.dup_addrs[other_id] == old_dup_id) {
+                    //console.log('replace main for dup', other_id, ': new:', id, 'old:', self.dup_addrs[other_id]);
+                    self.dup_addrs[other_id] = id;
+                    has_dup = true;
+                }
+            }
+        }
+        if (has_dup) {
+            if (old_dup_id != id) {
+                var oinfo = self.addr_working[old_dup_id];
+                self.hide_node(oinfo);
+                //console.log('hide old main dup', old_dup_id, 'and show new', id);
+            }
+        } else if (self.dup_addrs[id]) {
+            //console.log('remove main for dup', id, ': no share');
+            delete self.dup_addrs[id];
+        }
+        //console.log('show', id);
+        self.total_hashrate += info.total_hashrate;
+        self.total_shares += shares.total;
+        self.orphan_shares += shares.orphan;
+        self.dead_shares += shares.dead;
     }
 
     self.hide_node = function(info) {
+        //console.log('hide', info.ip + ':' + info.port);
         self.total_hashrate -= info.total_hashrate;
         var shares = info.stats.shares;
         self.total_shares -= shares.total;
         self.orphan_shares -= shares.orphan;
         self.dead_shares -= shares.dead;
+    }
+
+    self.remove_node = function(info) {
+        var id = info.ip + ':' + info.port;
+        for (var share in self.share_addrs) {
+            if (id in self.share_addrs[share]) {
+                delete self.share_addrs[share][id];
+            }
+        }
+        var is_dup = false;
+        if (self.dup_addrs[id]) {
+            var dup_id;
+            if (self.dup_addrs[id] == id) {
+                var has_dup = false;
+                for (var other_id in self.dup_addrs) {
+                    if (other_id != id && self.dup_addrs[other_id] == id) {
+                        if (dup_id) {
+                            has_dup = true;
+                        } else {
+                            dup_id = other_id;
+                            self.calc_node(self.addr_working[dup_id]);
+                        }
+                        //console.log('switch main to', dup_id, 'for remain dup', other_id);
+                        self.dup_addrs[other_id] = dup_id;
+                    }
+                }
+            } else {
+                is_dup = true;
+                dup_id = self.dup_addrs[id];
+                for (var other_id in self.dup_addrs) {
+                    if (other_id != id && other_id != dup_id && self.dup_addrs[other_id] == dup_id) {
+                        has_dup = true;
+                    }
+                }
+            }
+
+            //console.log('remove main', self.dup_addrs[id], 'for dup', id, ': removed');
+            delete self.dup_addrs[id];
+
+            if (dup_id && !has_dup) {
+                //console.log('remove main for dup', dup_id, ': one left');
+                delete self.dup_addrs[dup_id];
+            }
+        }
+        if (is_dup) {
+            //console.log('do not hide dup:', id);
+        } else {
+            self.hide_node(info);
+        }
     }
 
     // reload public list at startup
@@ -312,7 +433,7 @@ function Scanner(options) {
         if (/(^127\.0\.0\.1)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/.test(info.ip)) {
             if (self.addr_working[id]) {
                 var oinfo = self.addr_working[id];
-                self.hide_node(oinfo);
+                self.remove_node(oinfo);
             }
             delete self.addr_working[id];
             return continue_digest();
@@ -323,15 +444,22 @@ function Scanner(options) {
             if(!err && stats.protocol_version >= 1300) {
                 // Exclude nodes lacking protocol_version or older than 1300
                 if (self.addr_working[id]) {
-                    var oinfo = self.addr_working[id];
-                    self.hide_node(oinfo);
+                    if (!self.dup_addrs[id] || self.dup_addrs[id] == id) {
+                        var oinfo = self.addr_working[id];
+                        self.hide_node(oinfo);
+                    }
                 }
                 info.stats = stats;
                 info.fee   = stats.fee;
-                self.calc_node(info);
-                self.addr_working[id] = info;
-                // console.log("FOUND WORKING POOL: ", info.ip);
 
+                digest_shares(info, function(err, shares) {
+                    if(!err)
+                        info.shares = shares;
+                    self.calc_node(info);
+                    self.addr_working[id] = info;
+                    // console.log("FOUND WORKING POOL: ", info.ip);
+                });
+ 
                 digest_global_stats(info, function(err, stats) {
                     if(!err)
                         self.update_global_stats(stats);
@@ -350,7 +478,7 @@ function Scanner(options) {
             else {
                 if (self.addr_working[id]) {
                     var oinfo = self.addr_working[id];
-                    self.hide_node(oinfo);
+                    self.remove_node(oinfo);
                 }
                 delete self.addr_working[id];
                 continue_digest();
@@ -378,6 +506,18 @@ function Scanner(options) {
           host: info.ip,
           port: info.port-1,
           path: '/local_stats',
+          method: 'GET'
+        };
+
+        self.request(options, callback);
+    }
+
+    function digest_shares(info, callback) {
+
+        var options = {
+          host: info.ip,
+          port: info.port-1,
+          path: '/web/my_share_hashes',
           method: 'GET'
         };
 
