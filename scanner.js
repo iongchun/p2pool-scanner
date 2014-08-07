@@ -113,12 +113,35 @@ function Scanner(options) {
             +"</head><body>";
         if(logo)
             str += "<div style='float:left;margin:16px;'><img src=\""+logo+"\" /></div><br style='clear:both;'/>";
-        str += "<center><a href='https://github.com/forrestv/p2pool' target='_blank'>PEER TO PEER "+(config.currency.toUpperCase())+" MINING NETWORK</a> - PUBLIC NODE LIST<br/><span style='font-size:10px;color:#333;'>GENERATED ON: "+(new Date())+"</span></center><p/>"
+        str += "<center><a href='https://github.com/forrestv/p2pool' target='_blank'>PEER TO PEER "+(config.currency.toUpperCase())+" MINING NETWORK</a> - PUBLIC NODE LIST<br/><span style='font-size:10px;color:#333;'>GENERATED ON: "+(new Date())+"</span></center><p/>";
+
+        var total_hashrate = 0;
+        var total_shares = 0, orphan_shares = 0, dead_shares = 0;
+        var dup = {};
+        for (var id in self.addr_working) {
+            var not_dup = true;
+            if (self.dup_addrs[id]) {
+                var dup_id = self.dup_addrs[id];
+                if (dup[dup_id])
+                    not_dup = false;
+                else
+                    dup[dup_id] = dup_id;
+            }
+            if (not_dup) {
+                var info = self.addr_working[id];
+                total_hashrate += info.total_hashrate;
+                var shares = info.stats.shares;
+                total_shares += shares.total;
+                orphan_shares += shares.orphan;
+                dead_shares += shares.dead;
+            }
+        }
+
         if(self.poolstats)
             str += "<center>Pool speed: "+nice_number(self.poolstats.pool_hash_rate)+"h/s (est. good shares: " + (self.pool_good_rate * 100).toFixed(2) + "%)</center>";
-        var public_good_rate = (self.total_shares - self.orphan_shares - self.dead_shares) / self.total_shares;
-        str += "<center>Currently observing "+(self.nodes_total || "N/A")+" nodes.<br/>"+_.size(self.addr_working)+" nodes (" + nice_number(self.total_hashrate) + "h/s"
-            + (self.poolstats ? ", " + (self.total_hashrate / self.poolstats.pool_hash_rate * 100).toFixed(2) + "%" : "")
+        var public_good_rate = total_shares ? (total_shares - orphan_shares - dead_shares) / total_shares : 0;
+        str += "<center>Currently observing "+(self.nodes_total || "N/A")+" nodes.<br/>"+_.size(self.addr_working)+" nodes (" + nice_number(total_hashrate) + "h/s"
+            + (self.poolstats ? ", " + (total_hashrate / self.poolstats.pool_hash_rate * 100).toFixed(2) + "%" : "")
             + (public_good_rate ? ", good shares: " + (public_good_rate * 100).toFixed(2) + "%" : "")
             + ") are public with following IPs:</center><p/>";
         str += "<div class='p2p'>";
@@ -296,30 +319,10 @@ function Scanner(options) {
                 }
             }
         }
-        if (has_dup) {
-            if (old_dup_id != id) {
-                var oinfo = self.addr_working[old_dup_id];
-                self.hide_node(oinfo);
-                //console.log('hide old main dup', old_dup_id, 'and show new', id);
-            }
-        } else if (self.dup_addrs[id]) {
+        if (!has_dup && self.dup_addrs[id]) {
             //console.log('remove main for dup', id, ': no share');
             delete self.dup_addrs[id];
         }
-        //console.log('show', id);
-        self.total_hashrate += info.total_hashrate;
-        self.total_shares += shares.total;
-        self.orphan_shares += shares.orphan;
-        self.dead_shares += shares.dead;
-    }
-
-    self.hide_node = function(info) {
-        //console.log('hide', info.ip + ':' + info.port);
-        self.total_hashrate -= info.total_hashrate;
-        var shares = info.stats.shares;
-        self.total_shares -= shares.total;
-        self.orphan_shares -= shares.orphan;
-        self.dead_shares -= shares.dead;
     }
 
     self.remove_node = function(info) {
@@ -329,7 +332,6 @@ function Scanner(options) {
                 delete self.share_addrs[share][id];
             }
         }
-        var is_dup = false;
         if (self.dup_addrs[id]) {
             var dup_id;
             if (self.dup_addrs[id] == id) {
@@ -347,7 +349,6 @@ function Scanner(options) {
                     }
                 }
             } else {
-                is_dup = true;
                 dup_id = self.dup_addrs[id];
                 for (var other_id in self.dup_addrs) {
                     if (other_id != id && other_id != dup_id && self.dup_addrs[other_id] == dup_id) {
@@ -364,21 +365,12 @@ function Scanner(options) {
                 delete self.dup_addrs[dup_id];
             }
         }
-        if (is_dup) {
-            //console.log('do not hide dup:', id);
-        } else {
-            self.hide_node(info);
-        }
     }
 
     // reload public list at startup
     self.restore_working = function() {
         try {
             self.addr_working = JSON.parse(fs.readFileSync(config.store_file, 'utf8'));
-            self.total_hashrate = 0;
-            self.total_shares = 0;
-            self.orphan_shares = 0;
-            self.dead_shares = 0;
             self.pool_good_rate = 0;
             // migration from old key (ip) to new key (ip:port)
             var changed = false;
@@ -443,12 +435,6 @@ function Scanner(options) {
         digest_local_stats(info, function(err, stats){
             if(!err && stats.protocol_version >= 1300) {
                 // Exclude nodes lacking protocol_version or older than 1300
-                if (self.addr_working[id]) {
-                    if (!self.dup_addrs[id] || self.dup_addrs[id] == id) {
-                        var oinfo = self.addr_working[id];
-                        self.hide_node(oinfo);
-                    }
-                }
                 info.stats = stats;
                 info.fee   = stats.fee;
 
