@@ -113,6 +113,7 @@ function Scanner(options) {
             +"</head><body>";
         if(logo)
             str += "<div style='float:left;margin:16px;'><img src=\""+logo+"\" /></div><br style='clear:both;'/>";
+        str += "<div align='right'><a href='https://github.com/iongchun/p2pool-scanner'><img src='GitHub.png'/></a></div>";
         str += "<center><a href='https://github.com/forrestv/p2pool' target='_blank'>PEER TO PEER "+(config.currency.toUpperCase())+" MINING NETWORK</a> - PUBLIC NODE LIST<br/><span style='font-size:10px;color:#333;'>GENERATED ON: "+(new Date())+"</span></center><p/>";
 
         var total_hashrate = 0;
